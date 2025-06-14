@@ -1,12 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Registrar un nuevo trabajador
-  Future<UserCredential> registerWorker({
+  Future<void> registerWorker({
     required String email,
     required String password,
     required String name,
@@ -14,38 +12,42 @@ class AuthService {
     required String trabajadorId,
   }) async {
     try {
-      // Crear el usuario en Firebase Auth
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
       // Crear el documento del usuario en Firestore
-      await _firestore.collection('usuarios').doc(userCredential.user!.uid).set({
+      await _firestore.collection('usuarios').add({
         'email': email,
+        'password': password,
         'tipo': 'trabajador',
         'isActive': true,
         'empresaId': companyId,
         'trabajadorId': trabajadorId,
         'fechaCreacion': FieldValue.serverTimestamp(),
       });
-
-      return userCredential;
     } catch (e) {
       throw Exception('Error al registrar trabajador: $e');
     }
   }
 
   // Iniciar sesión
-  Future<UserCredential> signIn({
+  Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final querySnapshot = await _firestore
+          .collection('usuarios')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        throw Exception('Email no encontrado');
+      }
+
+      final userData = querySnapshot.docs.first.data();
+      if (userData['password'] != password) {
+        throw Exception('Contraseña incorrecta');
+      }
+
+      return userData;
     } catch (e) {
       throw Exception('Error al iniciar sesión: $e');
     }
@@ -53,38 +55,29 @@ class AuthService {
 
   // Cerrar sesión
   Future<void> signOut() async {
-    try {
-      await _auth.signOut();
-    } catch (e) {
-      throw Exception('Error al cerrar sesión: $e');
-    }
+    // No es necesario implementar nada aquí ya que no usamos Firebase Auth
   }
 
-  // Obtener el usuario actual
-  User? get currentUser => _auth.currentUser;
-
-  // Stream de cambios en el estado de autenticación
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-
   // Obtener datos del usuario actual desde Firestore
-  Future<Map<String, dynamic>?> getCurrentUserData() async {
+  Future<Map<String, dynamic>?> getCurrentUserData(String email) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return null;
+      final querySnapshot = await _firestore
+          .collection('usuarios')
+          .where('email', isEqualTo: email)
+          .get();
 
-      final userDoc = await _firestore.collection('usuarios').doc(user.uid).get();
-      if (!userDoc.exists) return null;
+      if (querySnapshot.docs.isEmpty) return null;
 
-      return userDoc.data();
+      return querySnapshot.docs.first.data();
     } catch (e) {
       throw Exception('Error al obtener datos del usuario: $e');
     }
   }
 
   // Verificar si el usuario es administrador
-  Future<bool> isAdmin() async {
+  Future<bool> isAdmin(String email) async {
     try {
-      final userData = await getCurrentUserData();
+      final userData = await getCurrentUserData(email);
       return userData?['tipo'] == 'admin';
     } catch (e) {
       return false;
@@ -92,9 +85,9 @@ class AuthService {
   }
 
   // Verificar si el usuario es trabajador
-  Future<bool> isWorker() async {
+  Future<bool> isWorker(String email) async {
     try {
-      final userData = await getCurrentUserData();
+      final userData = await getCurrentUserData(email);
       return userData?['tipo'] == 'trabajador';
     } catch (e) {
       return false;
@@ -102,9 +95,9 @@ class AuthService {
   }
 
   // Obtener el ID de la empresa del usuario actual
-  Future<String?> getCurrentUserCompanyId() async {
+  Future<String?> getCurrentUserCompanyId(String email) async {
     try {
-      final userData = await getCurrentUserData();
+      final userData = await getCurrentUserData(email);
       return userData?['empresaId'];
     } catch (e) {
       return null;

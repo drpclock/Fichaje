@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/trabajador.dart';
 import '../models/empresa.dart';
 import '../pages/registros_fichaje_page.dart';
+import '../pages/register_worker_page.dart';
 
 class TrabajadoresPage extends StatefulWidget {
   final List<Empresa> empresas;
@@ -87,6 +88,7 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
         dni: _dniController.text,
         telefono: _telefonoController.text,
         email: _emailController.text,
+        password: _passwordController.text.isEmpty ? '123456' : _passwordController.text,
         empresaId: _empresaSeleccionada!.id,
         fechaContratacion: DateTime.now(),
       );
@@ -120,28 +122,29 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
       body: Column(
         children: [
           if (!_mostrarFormulario) ...[
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: DropdownButtonFormField<Empresa>(
-                value: _empresaSeleccionada,
-                decoration: const InputDecoration(
-                  labelText: 'Seleccionar Empresa',
-                  border: OutlineInputBorder(),
+            if (widget.empresaId == null)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: DropdownButtonFormField<Empresa>(
+                  value: _empresaSeleccionada,
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar Empresa',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: widget.empresas.map((empresa) {
+                    return DropdownMenuItem(
+                      value: empresa,
+                      child: Text(empresa.nombre),
+                    );
+                  }).toList(),
+                  onChanged: (Empresa? value) {
+                    setState(() {
+                      _empresaSeleccionada = value;
+                    });
+                    _cargarTrabajadores();
+                  },
                 ),
-                items: widget.empresas.map((empresa) {
-                  return DropdownMenuItem(
-                    value: empresa,
-                    child: Text(empresa.nombre),
-                  );
-                }).toList(),
-                onChanged: (Empresa? value) {
-                  setState(() {
-                    _empresaSeleccionada = value;
-                  });
-                  _cargarTrabajadores();
-                },
               ),
-            ),
             Expanded(
               child: _trabajadores.isEmpty
                   ? const Center(
@@ -150,34 +153,63 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
                         style: TextStyle(fontSize: 18),
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _trabajadores.length,
-                      itemBuilder: (context, index) {
-                        final trabajador = _trabajadores[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: ListTile(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => RegistrosFichajePage(
-                                    trabajadorId: trabajador.id,
-                                    empresaId: _empresaSeleccionada?.id ?? widget.empresaId ?? '',
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          headingRowColor: MaterialStateProperty.all(Colors.blue.shade100),
+                          columns: const [
+                            DataColumn(label: Text('Nombre')),
+                            DataColumn(label: Text('Apellidos')),
+                            DataColumn(label: Text('DNI')),
+                            DataColumn(label: Text('Teléfono')),
+                            DataColumn(label: Text('Email')),
+                            DataColumn(label: Text('Fecha Contratación')),
+                            DataColumn(label: Text('Acciones')),
+                          ],
+                          rows: _trabajadores.map((trabajador) {
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(trabajador.nombre)),
+                                DataCell(Text(trabajador.apellidos)),
+                                DataCell(Text(trabajador.dni)),
+                                DataCell(Text(trabajador.telefono)),
+                                DataCell(Text(trabajador.email)),
+                                DataCell(Text(
+                                  '${trabajador.fechaContratacion.day}/${trabajador.fechaContratacion.month}/${trabajador.fechaContratacion.year}'
+                                )),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.history, color: Colors.blue),
+                                        tooltip: 'Ver registros de fichaje',
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => RegistrosFichajePage(
+                                                trabajadorId: trabajador.id,
+                                                empresaId: _empresaSeleccionada?.id ?? widget.empresaId ?? '',
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        tooltip: 'Eliminar trabajador',
+                                        onPressed: () => _eliminarTrabajador(trabajador),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                            title: Text('${trabajador.nombre} ${trabajador.apellidos}'),
-                            subtitle: Text(trabajador.email),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _eliminarTrabajador(trabajador),
-                            ),
-                          ),
-                        );
-                      },
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
             ),
           ] else ...[
@@ -359,9 +391,15 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
       floatingActionButton: !_mostrarFormulario
           ? FloatingActionButton(
               onPressed: () {
-                setState(() {
-                  _mostrarFormulario = true;
-                });
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RegisterWorkerPage(
+                      companyId: _empresaSeleccionada?.id ?? '',
+                      trabajadorId: '',
+                    ),
+                  ),
+                );
               },
               child: const Icon(Icons.add),
             )

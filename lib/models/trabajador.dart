@@ -8,6 +8,7 @@ class Trabajador {
   final String empresaId;
   final String telefono;
   final String email;
+  final String password;
   final DateTime fechaContratacion;
 
   Trabajador({
@@ -18,11 +19,12 @@ class Trabajador {
     required this.empresaId,
     required this.telefono,
     required this.email,
+    required this.password,
     required this.fechaContratacion,
   });
 
   factory Trabajador.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
     return Trabajador(
       id: doc.id,
       nombre: data['nombre'] ?? '',
@@ -31,7 +33,8 @@ class Trabajador {
       empresaId: data['empresaId'] ?? '',
       telefono: data['telefono'] ?? '',
       email: data['email'] ?? '',
-      fechaContratacion: (data['fechaContratacion'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      password: data['password'] ?? '123456',
+      fechaContratacion: (data['fechaContratacion'] as Timestamp).toDate(),
     );
   }
 
@@ -43,6 +46,7 @@ class Trabajador {
       'empresaId': empresaId,
       'telefono': telefono,
       'email': email,
+      'password': password,
       'fechaContratacion': Timestamp.fromDate(fechaContratacion),
     };
   }
@@ -56,6 +60,7 @@ class Trabajador {
       empresaId: map['empresaId'] ?? '',
       telefono: map['telefono'] ?? '',
       email: map['email'] ?? '',
+      password: map['password'] ?? '',
       fechaContratacion: (map['fechaContratacion'] as Timestamp).toDate(),
     );
   }
